@@ -165,6 +165,54 @@ cp configs/config.example.yaml configs/config.yaml
 - 远端部署不会覆盖你服务器上的 `.env` 和 `configs/config.yaml`
 - 这两个文件是运行必需项,缺失时 `remote-deploy.sh` 会直接失败
 - 当前工作流构建的是 `linux/amd64` 镜像,目标服务器也需要是 `amd64/x86_64`
+- 当前远端 compose 只部署 `server` 服务,MySQL / Redis 需要提前准备好
+- 如果你在 1Panel 上部署,当前模板默认使用 `1panel-network`,并把 `server` 端口绑定到 `127.0.0.1`
+
+### 1Panel 部署说明
+
+`deploy/.env.remote.example` 已经按 1Panel 场景给了默认值:
+
+- `APP_NETWORK_NAME=1panel-network`
+- `APP_NETWORK_EXTERNAL=true`
+- `HTTP_BIND_HOST=127.0.0.1`
+- `MYSQL_HOST=mysql`
+- `REDIS_HOST=redis`
+- `REDIS_PASSWORD=please_change_me`
+
+这样远端 compose 会:
+
+- 直接加入 1Panel 自带的 `1panel-network`
+- 只启动 `gpt2api-server`
+- 把端口映射成 `127.0.0.1:宿主端口:容器端口`
+- 通过 `.env` 中的 `MYSQL_HOST` / `REDIS_HOST` 去连接你已经存在的数据库和缓存
+
+例如 server 实际会映射成:
+
+```bash
+127.0.0.1:${HTTP_PORT}:8080
+```
+
+在 1Panel 站点反代里,上游地址直接填:
+
+```text
+127.0.0.1:${HTTP_PORT}
+```
+
+如果你的 MySQL / Redis 也是跑在 1Panel 容器里,推荐把 `MYSQL_HOST` / `REDIS_HOST` 配成它们在 `1panel-network` 里的容器名或服务名,不要填 `127.0.0.1`。
+
+原因是:
+
+- 容器内的 `127.0.0.1` 指向的是 `gpt2api-server` 自己
+- 只有数据库/缓存和 `gpt2api-server` 在同一个 Docker 网络里,才能通过容器名互相访问
+
+如果 Redis 开了密码,把 `.env` 里的 `REDIS_PASSWORD` 改成真实值即可;工作流同步后的 compose 会自动注入 `GPT2API_REDIS_PASSWORD`。
+
+如果你不是跑在 1Panel 上,把这两项改掉即可:
+
+```env
+APP_NETWORK_NAME=gpt2api-network
+APP_NETWORK_EXTERNAL=false
+```
 
 ### GitHub 仓库 Variables
 
