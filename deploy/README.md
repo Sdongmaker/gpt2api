@@ -170,6 +170,7 @@ APP_NETWORK_EXTERNAL=false
 
 在仓库 `Settings -> Secrets and variables -> Actions -> Variables` 中添加:
 
+- `DOCKERHUB_USERNAME`:Docker Hub 用户名
 - `DOCKERHUB_IMAGE`:Docker Hub 仓库名,例如 `yourname/gpt2api`
 - `DEPLOY_HOST`:目标服务器 IP 或域名
 - `DEPLOY_USER`:SSH 登录用户
@@ -180,7 +181,6 @@ APP_NETWORK_EXTERNAL=false
 
 在同一页面添加:
 
-- `DOCKERHUB_USERNAME`:Docker Hub 用户名
 - `DOCKERHUB_TOKEN`:Docker Hub Access Token
 - `DEPLOY_SSH_KEY`:用于登录目标服务器的私钥内容
 

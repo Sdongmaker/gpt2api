@@ -18,7 +18,6 @@ jobs:
     name: Build and Push Image
     runs-on: ubuntu-latest
     outputs:
-      image_name: ${{ steps.meta.outputs.image_name }}
       deploy_tag: ${{ steps.meta.outputs.deploy_tag }}
     steps:
       - name: Checkout
@@ -27,12 +26,12 @@ jobs:
       - name: Validate Docker Hub settings
         env:
           DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -euo pipefail
           test -n "$DOCKERHUB_IMAGE" || { echo "Missing repository variable DOCKERHUB_IMAGE"; exit 1; }
-          test -n "$DOCKERHUB_USERNAME" || { echo "Missing secret DOCKERHUB_USERNAME"; exit 1; }
+          test -n "$DOCKERHUB_USERNAME" || { echo "Missing repository variable DOCKERHUB_USERNAME"; exit 1; }
           test -n "$DOCKERHUB_TOKEN" || { echo "Missing secret DOCKERHUB_TOKEN"; exit 1; }
 
       - name: Set up Go
@@ -75,7 +74,7 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push image
@@ -157,7 +156,7 @@ jobs:
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-          IMAGE_NAME: ${{ needs.build-and-push.outputs.image_name }}
+          IMAGE_NAME: docker.io/${{ vars.DOCKERHUB_IMAGE }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.deploy_tag }}
         run: |
           set -euo pipefail
