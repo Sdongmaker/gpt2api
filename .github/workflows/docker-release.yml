@@ -1,0 +1,169 @@
+name: Docker Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.meta.outputs.image_name }}
+      deploy_tag: ${{ steps.meta.outputs.deploy_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Hub settings
+        env:
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$DOCKERHUB_IMAGE" || { echo "Missing repository variable DOCKERHUB_IMAGE"; exit 1; }
+          test -n "$DOCKERHUB_USERNAME" || { echo "Missing secret DOCKERHUB_USERNAME"; exit 1; }
+          test -n "$DOCKERHUB_TOKEN" || { echo "Missing secret DOCKERHUB_TOKEN"; exit 1; }
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build local release artifacts
+        run: bash deploy/build-local.sh --force
+
+      - name: Derive image metadata
+        id: meta
+        env:
+          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA::7}"
+          image_name="docker.io/${DOCKERHUB_IMAGE}"
+          deploy_tag="sha-${short_sha}"
+          {
+            echo "image_name=${image_name}"
+            echo "deploy_tag=${deploy_tag}"
+            echo "tags<<EOF"
+            echo "${image_name}:${deploy_tag}"
+            echo "${image_name}:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+  deploy:
+    name: Deploy to Target Server
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deploy settings
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_PORT:=22}"
+          : "${DEPLOY_PATH:=/opt/gpt2api}"
+          test -n "$DEPLOY_HOST" || { echo "Missing repository variable DEPLOY_HOST"; exit 1; }
+          test -n "$DEPLOY_USER" || { echo "Missing repository variable DEPLOY_USER"; exit 1; }
+          test -n "$DEPLOY_SSH_KEY" || { echo "Missing secret DEPLOY_SSH_KEY"; exit 1; }
+          echo "Deploy target: ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PORT} -> ${DEPLOY_PATH}"
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_PORT:=22}"
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Sync deployment files
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_PORT:=22}"
+          : "${DEPLOY_PATH:=/opt/gpt2api}"
+          ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '$DEPLOY_PATH/configs' '$DEPLOY_PATH/logs'"
+          scp -P "$DEPLOY_PORT" deploy/docker-compose.remote.yml \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/docker-compose.remote.yml"
+          scp -P "$DEPLOY_PORT" deploy/remote-deploy.sh \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/remote-deploy.sh"
+          scp -P "$DEPLOY_PORT" deploy/.env.remote.example \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/.env.example"
+          scp -P "$DEPLOY_PORT" configs/config.example.yaml \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/configs/config.example.yaml"
+          ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "chmod +x '$DEPLOY_PATH/remote-deploy.sh'"
+
+      - name: Deploy latest image
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          IMAGE_NAME: ${{ needs.build-and-push.outputs.image_name }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.deploy_tag }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_PORT:=22}"
+          : "${DEPLOY_PATH:=/opt/gpt2api}"
+          ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "export APP_DIR='$DEPLOY_PATH' APP_BASE_DIR='$DEPLOY_PATH' DOCKERHUB_IMAGE='$IMAGE_NAME' IMAGE_TAG='$IMAGE_TAG'; cd '$DEPLOY_PATH' && ./remote-deploy.sh"

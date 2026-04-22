@@ -1,0 +1,82 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: gpt2api-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gpt2api}
+      MYSQL_USER: ${MYSQL_USER:-gpt2api}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gpt2api}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+      - --innodb-buffer-pool-size=512M
+      - --max-connections=500
+      - --default-authentication-plugin=mysql_native_password
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: gpt2api-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  server:
+    image: ${DOCKERHUB_IMAGE:?set DOCKERHUB_IMAGE in .env or workflow}:${IMAGE_TAG:-latest}
+    platform: linux/amd64
+    container_name: gpt2api-server
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-gpt2api}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gpt2api}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gpt2api}
+      GPT2API_MYSQL_DSN: "${MYSQL_USER:-gpt2api}:${MYSQL_PASSWORD:-gpt2api}@tcp(mysql:3306)/${MYSQL_DATABASE:-gpt2api}?parseTime=true&loc=Local&charset=utf8mb4&collation=utf8mb4_unicode_ci"
+      GPT2API_REDIS_ADDR: "redis:6379"
+      GPT2API_BACKUP_DIR: /app/data/backups
+      GPT2API_BACKUP_RETENTION: ${BACKUP_RETENTION:-30}
+      GPT2API_BACKUP_ALLOW_RESTORE: ${BACKUP_ALLOW_RESTORE:-false}
+      GPT2API_JWT_SECRET: ${JWT_SECRET:-dev_secret_change_me_in_production_please_32b}
+      GPT2API_CRYPTO_AES_KEY: ${CRYPTO_AES_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    dns:
+      - ${DNS_PRIMARY:-8.8.8.8}
+      - ${DNS_FALLBACK:-1.1.1.1}
+    volumes:
+      - ${APP_BASE_DIR:-.}/configs:/app/configs:ro
+      - backups:/app/data/backups
+      - ${APP_BASE_DIR:-.}/logs:/app/logs
+    command: ["/app/gpt2api", "-c", "/app/configs/config.yaml"]
+
+volumes:
+  mysql_data:
+  redis_data:
+  backups:
