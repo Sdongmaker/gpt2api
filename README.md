@@ -119,8 +119,8 @@
 
 **部署**
 
-- Docker Compose(MySQL + Redis + server,可选 nginx)
-- 默认单机;水平扩展见 [`deploy/README.md`](deploy/README.md)
+- Docker Compose(`server` + 外接 MySQL / Redis,可接 1Panel 网络)
+- 详细部署步骤见 [`deploy/README.md`](deploy/README.md)
 
 ---
 
@@ -204,13 +204,16 @@ cd gpt2api/deploy
 cp .env.example .env
 ```
 
-**必改** `.env` 中的三项:
+**必改** `.env` 中的几项:
 
 ```env
 JWT_SECRET=请改成 >=32 位随机串
 CRYPTO_AES_KEY=请改成严格 64 位 hex(32 字节 AES-256)
-MYSQL_ROOT_PASSWORD=你自己的强密码
+DOCKERHUB_IMAGE=你的 Docker Hub 镜像地址
+MYSQL_HOST=你的 MySQL 地址或容器名
 MYSQL_PASSWORD=你自己的强密码
+REDIS_HOST=你的 Redis 地址或容器名
+REDIS_PASSWORD=你的 Redis 密码
 ```
 
 生成两个随机值的快捷命令:
@@ -220,16 +223,16 @@ openssl rand -hex 32   # CRYPTO_AES_KEY(64 位 hex)
 openssl rand -base64 48 | tr -d '=/+' | cut -c1-48   # JWT_SECRET
 ```
 
-启动:
+准备好外部 MySQL / Redis 后启动:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 docker compose logs -f server
 ```
 
 启动过程里 `server` 会自动:
 
-1. 等 `mysql` 健康;
+1. 等外部 MySQL 可连接;
 2. 跑 `goose up` 应用全部迁移(用户 / 账号 / 审计 / 备份元数据等十余张表);
 3. 启动 HTTP 服务 `:8080`。
 

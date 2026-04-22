@@ -142,11 +142,11 @@ jobs:
           : "${DEPLOY_PATH:=/opt/gpt2api}"
           ssh -p "$DEPLOY_PORT" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "mkdir -p '$DEPLOY_PATH/configs' '$DEPLOY_PATH/logs'"
-          scp -P "$DEPLOY_PORT" deploy/docker-compose.remote.yml \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/docker-compose.remote.yml"
+          scp -P "$DEPLOY_PORT" deploy/docker-compose.yml \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/docker-compose.yml"
           scp -P "$DEPLOY_PORT" deploy/remote-deploy.sh \
             "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/remote-deploy.sh"
-          scp -P "$DEPLOY_PORT" deploy/.env.remote.example \
+          scp -P "$DEPLOY_PORT" deploy/.env.example \
             "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/.env.example"
           scp -P "$DEPLOY_PORT" configs/config.example.yaml \
             "${DEPLOY_USER}@${DEPLOY_HOST}:$DEPLOY_PATH/configs/config.example.yaml"

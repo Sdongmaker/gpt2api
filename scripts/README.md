@@ -64,6 +64,7 @@ node scripts/smoke.mjs \
 GitHub Actions 示例骨架:
 
 ```yaml
+# 需要 .env 中已配置外部 MySQL / Redis
 - name: docker compose up
   run: docker compose -f deploy/docker-compose.yml up -d --wait
 
@@ -73,4 +74,3 @@ GitHub Actions 示例骨架:
 - name: smoke
   run: node scripts/smoke.mjs --base http://localhost:8080
 ```
-

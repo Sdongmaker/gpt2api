@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APP_DIR=${APP_DIR:-$(cd "$(dirname "$0")" && pwd)}
-COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.remote.yml}
+COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.yml}
 APP_BASE_DIR=${APP_BASE_DIR:-$APP_DIR}
 DOCKERHUB_IMAGE=${DOCKERHUB_IMAGE:-}
 IMAGE_TAG=${IMAGE_TAG:-latest}
@@ -33,7 +33,7 @@ command -v docker >/dev/null 2>&1 || {
 }
 
 mkdir -p "$APP_DIR/configs" "$APP_DIR/logs"
-require_file "$APP_DIR/$COMPOSE_FILE" "sync docker-compose.remote.yml to the server first"
+require_file "$APP_DIR/$COMPOSE_FILE" "sync docker-compose.yml to the server first"
 require_file "$APP_DIR/.env" "copy .env.example to .env and fill in production secrets first"
 require_file "$APP_DIR/configs/config.yaml" "copy configs/config.example.yaml to configs/config.yaml and adjust it first"
 
