@@ -95,7 +95,7 @@ const (
 // Defs 所有合法 key 的 schema。前端编辑页按 category + order 展示。
 var Defs = []KeyDef{
 	// ---------- 通用 ----------
-	{Key: SiteName, Type: "string", Category: "site", Default: "GPT2API", Label: "站点名称", Desc: "展示在顶栏和登录页大标题", Public: true},
+	{Key: SiteName, Type: "string", Category: "site", Default: "MAX API", Label: "站点名称", Desc: "展示在登录页、侧栏、标题栏等品牌位置", Public: true},
 	{Key: SiteDescription, Type: "string", Category: "site", Default: "企业级 OpenAI 兼容网关", Label: "副标题", Desc: "登录页宣传语", Public: true},
 	{Key: SiteLogoURL, Type: "url", Category: "site", Default: "", Label: "Logo URL", Desc: "空则使用默认图标", Public: true},
 	{Key: SiteFooter, Type: "string", Category: "site", Default: "", Label: "页脚文案", Desc: "版权/备案号等(纯文本)", Public: true},

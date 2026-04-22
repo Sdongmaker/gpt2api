@@ -130,7 +130,7 @@ func (s *Service) GetFloat(key string) float64 {
 // 所有 helper 都保证返回"安全"的业务默认(例如不让 0/负值落到业务路径)。
 
 // -- site --
-func (s *Service) SiteName() string { return firstNonEmpty(s.GetString(SiteName), "GPT2API") }
+func (s *Service) SiteName() string { return firstNonEmpty(s.GetString(SiteName), "MAX API") }
 
 // -- auth --
 func (s *Service) AllowRegister() bool { return s.GetBool(AuthAllowRegister) }

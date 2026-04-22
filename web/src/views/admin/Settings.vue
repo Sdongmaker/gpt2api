@@ -35,12 +35,14 @@ const tabs = [
   { name: 'mail', label: '邮件设置', icon: MailIcon },
 ] as const
 const activeTab = ref<(typeof tabs)[number]['name']>('site')
+const hiddenKeys = new Set(['site.footer'])
 
 const grouped = computed(() => {
   const map: Record<string, SettingItem[]> = {
     site: [], auth: [], defaults: [], gateway: [], billing: [], mail: [],
   }
   for (const it of items.value) {
+    if (hiddenKeys.has(it.key)) continue
     // 旧 category "limit" 归并到 defaults 显示
     const cat = it.category === 'limit' ? 'defaults' : it.category
     ;(map[cat] ||= []).push(it)

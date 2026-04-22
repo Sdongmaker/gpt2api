@@ -11,12 +11,11 @@ const route = useRoute()
 const store = useUserStore()
 const site = useSiteStore()
 
-const siteName = computed(() => site.get('site.name', 'GPT2API'))
+const siteName = computed(() => site.get('site.name', 'MAX API'))
 const siteDesc = computed(() =>
   site.get('site.description', '基于 chatgpt.com 的 OpenAI 兼容网关 · 多账号池 · IMG2 灰度 · 批量出图'),
 )
 const siteLogo = computed(() => site.get('site.logo_url', ''))
-const siteFooter = computed(() => site.get('site.footer', ''))
 const allowRegister = computed(() => site.allowRegister())
 
 const formRef = ref<FormInstance>()
@@ -104,7 +103,6 @@ async function onSubmit() {
         </div>
       </el-form>
     </el-card>
-    <div v-if="siteFooter" class="site-footer">{{ siteFooter }}</div>
   </div>
 </template>
 
@@ -150,11 +148,6 @@ async function onSubmit() {
     list-style: none; padding: 0; margin: 28px 0 0; color: #303133;
     li { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; font-size: 14px; }
   }
-}
-.site-footer {
-  position: absolute;
-  bottom: 12px; left: 0; right: 0;
-  text-align: center; font-size: 12px; color: #909399;
 }
 .foot .muted { color: #909399; }
 .form-card {
